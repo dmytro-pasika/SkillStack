@@ -1,70 +1,61 @@
-# Task Brief and publishing rules
+# Task Brief contract
 
-Shared contract for `create-github-task` (stages 1-2) and `publish-github-task` (stage 3).
+Shared by `create-github-task` (stages 1-2) and `publish-github-task` (stage 3). The rules below
+are **enforced in code** by
+[`publish-task.mjs`](../publish-github-task/scripts/publish-task.mjs); this file only documents them.
 
 ## Task Brief
 
-Handoff object between stages. Never publish anything that is not an approved Brief.
+Handoff object between stages, stored as a JSON file (for example in `$TMPDIR`).
 
 ```json
 {
   "type": "feature",
   "title": "Add multi-stage create-github-task workflow",
   "description": "Why the task exists and what it changes, 2-5 sentences.",
-  "acceptance_criteria": ["Verifiable outcome 1", "Verifiable outcome 2"],
-  "labels": ["enhancement"],
-  "status": "draft"
+  "acceptance_criteria": ["Verifiable outcome 1", "Verifiable outcome 2"]
 }
 ```
 
-| Field                 | Rules                                                                      |
-| --------------------- | -------------------------------------------------------------------------- |
-| `type`                | `bug`, `feature`, or `docs`                                                |
-| `title`               | Imperative, at most 70 characters, no trailing period                      |
-| `description`         | What and why, 2-5 sentences, no secrets                                    |
-| `acceptance_criteria` | 1-6 items, each independently verifiable                                   |
-| `labels`              | Only labels that exist in the repo; may be empty                           |
-| `status`              | `draft` until the user approves, then `approved`; publish requires `approved` |
+| Field                 | Enforced rule                                              |
+| --------------------- | ---------------------------------------------------------- |
+| `type`                | `bug`, `feature`, or `docs`                                |
+| `title`               | Non-empty single line, at most 70 chars, no trailing period |
+| `description`         | Non-empty string, no secrets                               |
+| `acceptance_criteria` | 1-6 non-empty strings                                      |
+
+Any other field makes the Brief invalid. The label comes from `type`:
+`bug` -> `bug`, `feature` -> `enhancement`, `docs` -> `documentation`.
 
 One Brief is one issue. If the request holds several independent tasks, propose a split first.
+Imperative wording and verifiable criteria are not machine-checkable: review them yourself.
 
-## Type to label
-
-| `type`    | Label           |
-| --------- | --------------- |
-| `bug`     | `bug`           |
-| `feature` | `enhancement`   |
-| `docs`    | `documentation` |
-
-Check with `gh label list -R dosandk/SkillStack`. Never create new labels. Drop a label that does not
-exist and mention it to the user.
-
-## Issue body template
-
-```markdown
-## Description
-<description>
-
-## Acceptance criteria
-- [ ] <criterion>
-```
-
-## Duplicate check
+## Commands
 
 ```bash
-gh issue list -R dosandk/SkillStack --state all --search "<title keywords>" --json number,title,state
+# Stage 1: validate, check for an exact-title duplicate, print the approval hash (read-only)
+node .agents/skills/publish-github-task/scripts/publish-task.mjs check <brief.json>
+
+# Stage 3: re-validate, create the issue, add it to project 10
+node .agents/skills/publish-github-task/scripts/publish-task.mjs publish <brief.json> --approved-hash <hash>
 ```
 
-Show similar open or recent issues to the user and ask whether to continue. Do not decide alone.
+The hash covers type, title, description, and criteria. `publish` fails if the Brief changed after
+the hash was shown to the user, so an edit always requires a new `check` and new approval.
 
-## Publishing rules
+## What the script guarantees
 
-- Repository is `dosandk/SkillStack`. Use only the `gh` CLI.
-- Pass the body with `--body-file`, never inline, to keep markdown intact.
-- Do not pass `--assignee`: contributors have read-only access and `gh` creates the issue before
-  failing on the assignee, which leaves a duplicate on retry.
-- Do not add the issue to the project board: the board picks up new issues automatically.
-- After any error, search for the exact title before retrying. Never create a second issue.
+- Invalid Brief: nothing is created.
+- Exact-title duplicate (case-insensitive, any state): nothing is created.
+- No `--assignee` (contributors have read-only access, and `gh` creates the issue before failing).
+- If adding to the board fails after the issue exists, the script prints the issue URL and the
+  retry command. Do not create another issue.
+
+## What the script cannot guarantee
+
+That a human approved. Approval is the agent's responsibility: show the draft and the hash, and
+publish only after an explicit yes. Cursor and Copilot also ask the user before running a shell
+command by default; do not auto-approve `publish`.
 
 ## Link to the delivery process
 
