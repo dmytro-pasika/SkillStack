@@ -1,111 +1,56 @@
 ---
 name: create-github-task
 description: >-
-  Create a new task (GitHub issue) in dosandk/SkillStack and add it to the
-  GitHub Project board (user project 10) using the GitHub CLI. Use when the
-  user asks to add, create, or file a task, ticket, issue, or backlog item.
+  Stages 1-2 of the task workflow: analyze a request, build a Task Brief
+  (type, title, description, acceptance criteria, labels), and get the user's
+  approval. Then hands off to publish-github-task. Use when the user asks to
+  add, create, or file a task, ticket, issue, or backlog item in
+  dosandk/SkillStack.
 ---
 
-# Create GitHub task (SkillStack)
+# Create GitHub task (orchestrator)
 
-Turns a user request into a GitHub issue in `dosandk/SkillStack` and puts it on the project board
-`https://github.com/users/dosandk/projects/10`.
+Multi-stage workflow: **Analyze -> Approve -> Publish**. This skill owns the first two stages and
+delegates the third to `publish-github-task`. Brief format and rules: [reference.md](reference.md).
 
 ## Hard rules
 
-- **Never create the issue without explicit user confirmation** of the final title and body.
-- Use only the `gh` CLI. Do not call the GitHub API with raw tokens.
-- Never put secrets, `.env` values, or private data in the title or body.
-- Create **one** issue per task. If the request describes several tasks, propose a split and
-  confirm it first.
-- Do not edit or close existing issues unless the user asks.
+- Never publish from this skill. Publishing belongs to `publish-github-task`.
+- Never hand off a Brief the user has not explicitly approved.
+- One Brief per issue. Propose a split when the request holds several tasks.
+- No secrets, `.env` values, or private data in the Brief.
+- This stage is read-only: it may run `gh` list and search commands, never `gh issue create`.
 
-## Constants
+## Stage 1 - Analyze
 
-| Name       | Value                |
-| ---------- | -------------------- |
-| Repository | `dosandk/SkillStack` |
-| Project    | `10` (owner `dosandk`) |
+1. Preflight: `gh auth status`. If `gh` is missing or not logged in, tell the user
+   (`brew install gh`, `gh auth login`) and stop.
+2. Read the request. Ask the user only for what you cannot infer: type, scope, or acceptance
+   criteria. One question at a time.
+3. Fill the Task Brief fields following the rules in `reference.md`, with `status: draft`.
+4. Fetch labels with `gh label list -R dosandk/SkillStack` and map `type` to a label that exists.
+5. Run the duplicate check from `reference.md`. If similar issues exist, show them and ask whether
+   to continue.
 
-## Workflow
+## Stage 2 - Approve
 
-### 1. Preflight
-
-```bash
-gh --version
-gh auth status
-```
-
-- `gh` missing: tell the user to install it (`brew install gh`) and stop.
-- Not logged in: ask the user to run `gh auth login`.
-- Project access needs the `project` scope. If `gh auth status` does not list it, ask the user to
-  run `gh auth refresh -s project`.
-
-### 2. Gather the task
-
-Collect from the request, asking only for what is missing:
-
-- **Title**: imperative, short, no trailing period (e.g. `Add skill for creating GitHub tasks`).
-- **Description**: what and why, in 2-5 sentences.
-- **Acceptance criteria**: checklist of verifiable outcomes.
-- **Labels** (optional): only labels that exist. Check with `gh label list -R dosandk/SkillStack`.
-- **Assignee** (optional): GitHub login, or `@me`.
-
-### 3. Draft and confirm
-
-Show the draft and wait for approval:
+Show the Brief as a readable draft (not raw JSON):
 
 ```markdown
+**Type:** <type>   **Labels:** <labels or none>
 **Title:** <title>
-**Labels:** <labels or none>
-**Assignee:** <login or none>
 
 ## Description
 <description>
 
 ## Acceptance criteria
 - [ ] <criterion>
-- [ ] <criterion>
 ```
 
-### 4. Create the issue
+Ask for approval. On edits, update the Brief and show it again. Only an explicit yes
+("yes", "ok", "create") sets `status: approved`. Silence or questions do not count.
 
-Write the body to a temp file to avoid shell-quoting problems, then create the issue:
+## Stage 3 - Hand off
 
-```bash
-BODY_FILE="$(mktemp)"
-cat > "$BODY_FILE" <<'EOF'
-<approved body>
-EOF
-
-gh issue create -R dosandk/SkillStack \
-  --title "<approved title>" \
-  --body-file "$BODY_FILE" \
-  [--label "<label>"] [--assignee "<login>"]
-
-rm -f "$BODY_FILE"
-```
-
-`gh issue create` prints the issue URL. Keep it.
-
-### 5. Add to the project board
-
-```bash
-gh project item-add 10 --owner dosandk --url <issue-url>
-```
-
-If this fails with a permission error, ask the user to run `gh auth refresh -s project` and retry
-once.
-
-### 6. Report
-
-Reply with the issue URL, the number (`#<n>`), and confirmation that it was added to the project.
-Mention the issue number as the branch/PR reference: branches follow
-`{type}/{issue-number}-{slug}` (see `contributing.md`), and PRs use `Closes #<n>`.
-
-## Failure handling
-
-- Issue created but project add failed: report the issue URL, say the project step failed with the
-  error text, and give the exact `gh project item-add` command for the user to retry.
-- Never create a second issue to retry; check first with
-  `gh issue list -R dosandk/SkillStack --search "<title>" --state all`.
+Pass the approved Brief to `publish-github-task` and let it run. Do not run `gh issue create`
+yourself. When it returns, relay the issue URL and number to the user.
