@@ -34,10 +34,10 @@ delegates the third to `publish-github-task`. Brief format, commands, and guaran
 
 ## Stage 2 - Approve
 
-Show the Brief as a readable draft (not raw JSON) together with the label and hash:
+Show the Brief as a readable draft (not raw JSON) together with the label:
 
 ```markdown
-**Type:** <type>   **Label:** <label>   **Hash:** <hash>
+**Type:** <type>   **Label:** <label>
 **Title:** <title>
 
 ## Description
@@ -47,10 +47,12 @@ Show the Brief as a readable draft (not raw JSON) together with the label and ha
 - [ ] <criterion>
 ```
 
-Ask for approval. On any edit, update the file and rerun `check` to get a new hash, then show the
-draft again. Only an explicit yes ("yes", "ok", "create") is approval. Silence or questions are not.
+End with the question "Approve?" and wait. Only an explicit answer to this exact draft is approval
+("approve", "yes", "ok", "create"). Silence, questions, or earlier general instructions such as
+"follow the plan" are not. On any edit, update the file, rerun `check` for a new hash, show the draft
+again, and ask again. The user never needs to see or type the hash.
 
 ## Stage 3 - Hand off
 
-Give `publish-github-task` the Brief file path and the approved hash. When it returns, relay the
+Give `publish-github-task` the Brief file path and the hash from the last `check`. When it returns, relay the
 issue URL and number to the user.

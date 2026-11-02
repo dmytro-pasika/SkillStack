@@ -53,9 +53,10 @@ the hash was shown to the user, so an edit always requires a new `check` and new
 
 ## What the script cannot guarantee
 
-That a human approved. Approval is the agent's responsibility: show the draft and the hash, and
-publish only after an explicit yes. Cursor and Copilot also ask the user before running a shell
-command by default; do not auto-approve `publish`.
+That a human approved. Approval is the agent's responsibility: show the draft and publish only
+after an explicit yes ("approve", "yes", "ok"). The strongest guard is the tool's own command
+confirmation: do not add `publish-task.mjs` to the auto-run allowlist in Cursor or Copilot, so every
+`publish` needs a click from the user.
 
 ## Link to the delivery process
 

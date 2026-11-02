@@ -17,6 +17,8 @@ guarantees: [../create-github-task/reference.md](../create-github-task/reference
 ## Hard rules
 
 - Run `publish` only after the user explicitly approved the exact draft that produced the hash.
+  Without such a reply in this conversation, stop and ask "Approve?".
+- Never run `publish` in an auto-run mode: let the tool ask the user to confirm the command.
 - Use only the script. Never call `gh issue create` or `gh project item-add` directly.
 - Do not edit the Brief file. If anything must change, go back to `create-github-task`.
 - If the script fails, show its message to the user. Do not retry `publish` without checking the
